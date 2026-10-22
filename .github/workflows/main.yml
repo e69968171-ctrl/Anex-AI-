@@ -1,0 +1,47 @@
+
+name: Build Anex AI APK
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Extract Android project ZIP
+        run: |
+          ZIP=$(find . -maxdepth 1 -type f -iname '*.zip' | head -n 1)
+          if [ -z "$ZIP" ]; then
+            echo "Project ZIP not found in repository root"
+            exit 1
+          fi
+          mkdir android-project
+          unzip -q "$ZIP" -d android-project
+          echo "Extracted project:"
+          find android-project -maxdepth 3 -type f | head -80
+
+      - name: Locate Gradle project
+        run: |
+          FILE=$(find android-project -name gradlew -type f | head -n 1)
+          if [ -z "$FILE" ]; then
+            echo "No gradlew file found. This ZIP may not be a native Android Gradle project."
+            exit 1
+          fi
+          echo "PROJECT_DIR=$(dirname "$FILE")" >> "$GITHUB_ENV"
+
+      - name: Build debug APK
+        run: |
+          cd "$PROJECT_DIR"
+          chmod +x gradlew
+          ./gradlew assembleDebug
+
+      - name: Upload APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: Anex-AI-APK
+          path: android-project/**/build/outputs/apk/debug/*.apk
+          if-no-files-found: error
